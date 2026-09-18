@@ -76,7 +76,7 @@ const hints: Record<Source, ReadonlyArray<string>> = {
 type Lookup = Effect.Effect<Option.Option<Resolved>, CredentialsError>
 
 const fromConfig = (name: string, method: Resolved["method"], source: Source): Lookup =>
-  Config.option(Config.Redacted(name)).pipe(
+  Config.option(Config.redacted(name)).pipe(
     Effect.map(Option.map((token) => ({ method, token }))),
     Effect.catchTag(
       "ConfigError",

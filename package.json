@@ -1,6 +1,6 @@
 {
   "name": "effect-ai-vercel-gateway",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Vercel AI Gateway client for Effect AI (@effect/ai-anthropic)",
   "keywords": [
     "ai-gateway",
@@ -42,11 +42,11 @@
     "prepublishOnly": "pnpm check && pnpm test && pnpm build"
   },
   "devDependencies": {
-    "@effect/ai-anthropic": "4.0.0-rc.115",
+    "@effect/ai-anthropic": "4.0.0-rc.112",
     "@effect/language-service": "^0.87.2",
-    "@effect/vitest": "4.0.0-rc.115",
+    "@effect/vitest": "4.0.0-rc.112",
     "@types/node": "^24",
-    "effect": "4.0.0-rc.115",
+    "effect": "4.0.0-rc.112",
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0",
     "tsdown": "^0.23.0",
@@ -54,8 +54,8 @@
     "vitest": "^5.0.1"
   },
   "peerDependencies": {
-    "@effect/ai-anthropic": "^4.0.0-rc.112",
-    "effect": "^4.0.0-rc.112"
+    "@effect/ai-anthropic": "4.0.0-rc.112",
+    "effect": "4.0.0-rc.112"
   },
   "packageManager": "pnpm@10.33.0"
 }
