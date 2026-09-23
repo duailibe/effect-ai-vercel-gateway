@@ -3,7 +3,7 @@ import { assert, describe, it } from "@effect/vitest"
 import { ConfigProvider, Effect, Layer } from "effect"
 import { LanguageModel } from "effect/unstable/ai"
 import { HttpBody, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
-import { AiGateway, Credentials } from "../src/index.js"
+import { AiGateway, AiGatewayCredentials } from "../src/ai-gateway.js"
 
 const gatewayMessage = {
   id: "msg_1",
@@ -47,11 +47,11 @@ function decodeJsonBody(request: HttpClientRequest.HttpClientRequest): unknown {
 
 const model = (
   id: string,
-  credentials: Layer.Layer<Credentials.Credentials>,
+  credentials: Layer.Layer<AiGatewayCredentials.AiGatewayCredentials>,
   http: Layer.Layer<HttpClient.HttpClient>,
 ) =>
   AnthropicLanguageModel.layer({ model: id }).pipe(
-    Layer.provide(AiGateway.layer),
+    Layer.provide(AiGateway.layerWithoutCredentials),
     Layer.provide([credentials, http]),
   )
 
@@ -142,7 +142,11 @@ describe("layer", () => {
 
       const response = yield* LanguageModel.generateText({ prompt: "hi" }).pipe(
         Effect.provide(
-          model("google/gemini-2.5-flash", Credentials.fromApiKey("secret"), http.layer),
+          model(
+            "google/gemini-2.5-flash",
+            AiGatewayCredentials.layerFromApiKey("secret"),
+            http.layer,
+          ),
         ),
       )
 
@@ -162,7 +166,9 @@ describe("layer", () => {
       const http = fakeHttpClient(gatewayMessage)
 
       const error = yield* LanguageModel.generateText({ prompt: "hi" }).pipe(
-        Effect.provide(model("anthropic/claude-sonnet-4.5", Credentials.fromEnv(), http.layer)),
+        Effect.provide(
+          model("anthropic/claude-sonnet-4.5", AiGatewayCredentials.layerFromEnv, http.layer),
+        ),
         Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnvRecord({})),
         Effect.flip,
       )
@@ -180,7 +186,9 @@ describe("layer", () => {
       )
 
       const error = yield* LanguageModel.generateText({ prompt: "hi" }).pipe(
-        Effect.provide(model("nope/nope", Credentials.fromApiKey("secret"), http.layer)),
+        Effect.provide(
+          model("nope/nope", AiGatewayCredentials.layerFromApiKey("secret"), http.layer),
+        ),
         Effect.flip,
       )
 

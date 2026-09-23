@@ -1,12 +1,12 @@
 {
-  "name": "effect-ai-vercel-gateway",
-  "version": "0.1.1",
-  "description": "Vercel AI Gateway client for Effect AI (@effect/ai-anthropic)",
+  "name": "effect-vercel",
+  "version": "0.1.0",
+  "description": "Effect integrations for Vercel: AI Gateway, OIDC",
   "keywords": [
     "ai-gateway",
-    "anthropic",
     "effect",
     "effect-ai",
+    "oidc",
     "vercel"
   ],
   "homepage": "https://github.com/duailibe/effect-ai-vercel-gateway#readme",
@@ -26,7 +26,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./dist/index.js",
+    "./ai-gateway": "./dist/ai-gateway.js",
+    "./oidc": "./dist/oidc.js",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -56,6 +57,11 @@
   "peerDependencies": {
     "@effect/ai-anthropic": "4.0.0-rc.112",
     "effect": "4.0.0-rc.112"
+  },
+  "peerDependenciesMeta": {
+    "@effect/ai-anthropic": {
+      "optional": true
+    }
   },
   "packageManager": "pnpm@10.33.0"
 }

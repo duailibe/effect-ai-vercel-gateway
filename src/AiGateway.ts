@@ -15,14 +15,14 @@
  *
  * @example
  * ```ts
- * import { AiGateway, Credentials } from "effect-ai-vercel-gateway"
+ * import { AiGateway } from "effect-vercel/ai-gateway"
  * import { AnthropicLanguageModel } from "@effect/ai-anthropic"
  * import { Layer } from "effect"
  * import { FetchHttpClient } from "effect/unstable/http"
  *
  * const Model = AnthropicLanguageModel.layer({ model: "anthropic/claude-sonnet-4.5" }).pipe(
  *   Layer.provide(AiGateway.layer),
- *   Layer.provide([Credentials.fromChain(), FetchHttpClient.layer]),
+ *   Layer.provide(FetchHttpClient.layer),
  * )
  * ```
  */
@@ -36,7 +36,7 @@ import {
   HttpClientRequest,
   HttpClientResponse,
 } from "effect/unstable/http"
-import * as Credentials from "./Credentials.js"
+import * as AiGatewayCredentials from "./AiGatewayCredentials.js"
 
 /** Base URL of the Vercel AI Gateway. */
 export const AI_GATEWAY_URL = "https://ai-gateway.vercel.sh"
@@ -46,7 +46,7 @@ export const AI_GATEWAY_URL = "https://ai-gateway.vercel.sh"
  * request with `credentials`. A credential failure fails that request as an
  * `HttpClientError`, which Effect AI surfaces as a network `AiError`.
  */
-export const make = (credentials: typeof Credentials.Credentials.Service) =>
+export const make = (credentials: typeof AiGatewayCredentials.AiGatewayCredentials.Service) =>
   AnthropicClient.make({
     apiUrl: AI_GATEWAY_URL,
     transformClient: (client) =>
@@ -58,23 +58,31 @@ export const make = (credentials: typeof Credentials.Credentials.Service) =>
   })
 
 /**
- * `AnthropicClient` backed by the gateway. Needs `Credentials` (see the
- * `Credentials` module's `from*` layers) and an `HttpClient`. Building never
- * fails; without a usable credential, the requests fail.
+ * `AnthropicClient` backed by the gateway, authenticating with the
+ * `AiGatewayCredentials` you provide (see that module's `layerFrom*` layers).
+ * Needs an `HttpClient` too.
  */
-export const layer: Layer.Layer<
+export const layerWithoutCredentials: Layer.Layer<
   AnthropicClient.AnthropicClient,
   never,
-  Credentials.Credentials | HttpClient.HttpClient
+  AiGatewayCredentials.AiGatewayCredentials | HttpClient.HttpClient
 > = Layer.effect(AnthropicClient.AnthropicClient)(
-  Effect.flatMap(Effect.service(Credentials.Credentials), make),
+  Effect.flatMap(Effect.service(AiGatewayCredentials.AiGatewayCredentials), make),
 )
 
-function authenticate(credentials: typeof Credentials.Credentials.Service) {
+/**
+ * `layerWithoutCredentials` with the default `AiGatewayCredentials.layer`:
+ * `AI_GATEWAY_API_KEY`, else the Vercel OIDC token. Needs an `HttpClient`.
+ * Building never fails; without a usable credential, the requests fail.
+ */
+export const layer: Layer.Layer<AnthropicClient.AnthropicClient, never, HttpClient.HttpClient> =
+  layerWithoutCredentials.pipe(Layer.provide(AiGatewayCredentials.layer))
+
+function authenticate(credentials: typeof AiGatewayCredentials.AiGatewayCredentials.Service) {
   return (request: HttpClientRequest.HttpClientRequest) =>
     credentials.pipe(
       Effect.map((resolved) =>
-        HttpClientRequest.setHeaders(request, Credentials.formatHeaders(resolved)),
+        HttpClientRequest.setHeaders(request, AiGatewayCredentials.formatHeaders(resolved)),
       ),
       Effect.mapError(
         (error) =>

@@ -1,42 +1,31 @@
 import { assert, describe, it } from "@effect/vitest"
 import { ConfigProvider, Effect, Layer, Redacted } from "effect"
-import { Credentials } from "../src/index.js"
-
-const REQUEST_CONTEXT = Symbol.for("@vercel/request-context")
+import { AiGatewayCredentials } from "../src/ai-gateway.js"
 
 const withEnv = (env: Record<string, string | undefined>) =>
   Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnvRecord(env))
 
-const resolve = (layer: Layer.Layer<Credentials.Credentials>) =>
-  Effect.flatten(Effect.service(Credentials.Credentials)).pipe(Effect.provide(layer))
-
-const withRequestContext = <A, E, R>(token: string, effect: Effect.Effect<A, E, R>) =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => {
-      const holder = globalThis as Record<PropertyKey, unknown>
-      holder[REQUEST_CONTEXT] = { get: () => ({ headers: { "x-vercel-oidc-token": token } }) }
-      return holder
-    }),
-    () => effect,
-    (holder) => Effect.sync(() => delete holder[REQUEST_CONTEXT]),
+const resolve = (layer: Layer.Layer<AiGatewayCredentials.AiGatewayCredentials>) =>
+  Effect.flatten(Effect.service(AiGatewayCredentials.AiGatewayCredentials)).pipe(
+    Effect.provide(layer),
   )
 
-describe("Credentials", () => {
-  describe("fromApiKey", () => {
+describe("AiGatewayCredentials", () => {
+  describe("layerFromApiKey", () => {
     it.effect("resolves the given key", () =>
       Effect.gen(function* () {
-        const resolved = yield* resolve(Credentials.fromApiKey("key"))
+        const resolved = yield* resolve(AiGatewayCredentials.layerFromApiKey("key"))
         assert.deepStrictEqual(resolved, { method: "api-key", token: Redacted.make("key") })
-        const redacted = yield* resolve(Credentials.fromApiKey(Redacted.make("key2")))
+        const redacted = yield* resolve(AiGatewayCredentials.layerFromApiKey(Redacted.make("key2")))
         assert.strictEqual(Redacted.value(redacted.token), "key2")
       }),
     )
   })
 
-  describe("fromEnv", () => {
+  describe("layerFromEnv", () => {
     it.effect("reads AI_GATEWAY_API_KEY", () =>
       Effect.gen(function* () {
-        const resolved = yield* resolve(Credentials.fromEnv()).pipe(
+        const resolved = yield* resolve(AiGatewayCredentials.layerFromEnv).pipe(
           withEnv({ AI_GATEWAY_API_KEY: "key", VERCEL_OIDC_TOKEN: "oidc" }),
         )
         assert.strictEqual(resolved.method, "api-key")
@@ -46,7 +35,7 @@ describe("Credentials", () => {
 
     it.effect("ignores the OIDC token", () =>
       Effect.gen(function* () {
-        const error = yield* resolve(Credentials.fromEnv()).pipe(
+        const error = yield* resolve(AiGatewayCredentials.layerFromEnv).pipe(
           withEnv({ VERCEL_OIDC_TOKEN: "oidc" }),
           Effect.flip,
         )
@@ -56,32 +45,20 @@ describe("Credentials", () => {
     )
   })
 
-  describe("fromVercelOidc", () => {
-    it.effect("prefers the request context header over the env var", () =>
-      withRequestContext(
-        "from-request",
-        Effect.gen(function* () {
-          const resolved = yield* resolve(Credentials.fromVercelOidc()).pipe(
-            withEnv({ VERCEL_OIDC_TOKEN: "from-env" }),
-          )
-          assert.strictEqual(resolved.method, "oidc")
-          assert.strictEqual(Redacted.value(resolved.token), "from-request")
-        }),
-      ),
-    )
-
+  describe("layerFromVercelOidc", () => {
     it.effect("falls back to VERCEL_OIDC_TOKEN", () =>
       Effect.gen(function* () {
-        const resolved = yield* resolve(Credentials.fromVercelOidc()).pipe(
+        const resolved = yield* resolve(AiGatewayCredentials.layerFromVercelOidc).pipe(
           withEnv({ VERCEL_OIDC_TOKEN: "from-env" }),
         )
+        assert.strictEqual(resolved.method, "oidc")
         assert.strictEqual(Redacted.value(resolved.token), "from-env")
       }),
     )
 
     it.effect("ignores AI_GATEWAY_API_KEY", () =>
       Effect.gen(function* () {
-        const error = yield* resolve(Credentials.fromVercelOidc()).pipe(
+        const error = yield* resolve(AiGatewayCredentials.layerFromVercelOidc).pipe(
           withEnv({ AI_GATEWAY_API_KEY: "key" }),
           Effect.flip,
         )
@@ -90,10 +67,10 @@ describe("Credentials", () => {
     )
   })
 
-  describe("fromChain", () => {
+  describe("layer", () => {
     it.effect("prefers AI_GATEWAY_API_KEY", () =>
       Effect.gen(function* () {
-        const resolved = yield* resolve(Credentials.fromChain()).pipe(
+        const resolved = yield* resolve(AiGatewayCredentials.layer).pipe(
           withEnv({ AI_GATEWAY_API_KEY: "key", VERCEL_OIDC_TOKEN: "oidc" }),
         )
         assert.strictEqual(resolved.method, "api-key")
@@ -102,7 +79,7 @@ describe("Credentials", () => {
 
     it.effect("falls back to the OIDC token", () =>
       Effect.gen(function* () {
-        const resolved = yield* resolve(Credentials.fromChain()).pipe(
+        const resolved = yield* resolve(AiGatewayCredentials.layer).pipe(
           withEnv({ VERCEL_OIDC_TOKEN: "oidc" }),
         )
         assert.strictEqual(resolved.method, "oidc")
@@ -111,16 +88,16 @@ describe("Credentials", () => {
 
     it.effect("fails with hints when nothing is configured", () =>
       Effect.gen(function* () {
-        const error = yield* resolve(Credentials.fromChain()).pipe(withEnv({}), Effect.flip)
-        assert.strictEqual(error.source, "chain")
+        const error = yield* resolve(AiGatewayCredentials.layer).pipe(withEnv({}), Effect.flip)
+        assert.strictEqual(error.source, "default")
         assert.isAbove(error.hints.length, 0)
       }),
     )
 
     it.effect("resolves per call, not once", () =>
       Effect.gen(function* () {
-        const credentials = yield* Effect.service(Credentials.Credentials).pipe(
-          Effect.provide(Credentials.fromChain()),
+        const credentials = yield* Effect.service(AiGatewayCredentials.AiGatewayCredentials).pipe(
+          Effect.provide(AiGatewayCredentials.layer),
         )
         const first = yield* credentials.pipe(withEnv({ AI_GATEWAY_API_KEY: "one" }))
         const second = yield* credentials.pipe(withEnv({ AI_GATEWAY_API_KEY: "two" }))
@@ -132,7 +109,7 @@ describe("Credentials", () => {
 
   it("formatHeaders", () => {
     assert.deepStrictEqual(
-      Credentials.formatHeaders({ method: "oidc", token: Redacted.make("t") }),
+      AiGatewayCredentials.formatHeaders({ method: "oidc", token: Redacted.make("t") }),
       { "x-api-key": "t", "ai-gateway-auth-method": "oidc" },
     )
   })
